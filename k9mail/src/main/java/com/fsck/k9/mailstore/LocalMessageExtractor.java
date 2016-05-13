@@ -23,6 +23,7 @@ import com.fsck.k9.provider.K9FileProvider;
 import com.fsck.k9.ui.crypto.MessageCryptoAnnotations;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -523,7 +524,12 @@ public class LocalMessageExtractor {
             Body body = part.getBody();
             if (body instanceof DecryptedTempFileBody) {
                 DecryptedTempFileBody decryptedTempFileBody = (DecryptedTempFileBody) body;
-                File file = decryptedTempFileBody.getFile();
+                File file = null;
+                try {
+                    file = decryptedTempFileBody.getFile();
+                } catch (IOException e) {
+                    throw new MessagingException(e.getMessage(), e);
+                }
                 Uri uri = K9FileProvider.getUriForFile(context, file, part.getMimeType());
                 long size = file.length();
                 return extractAttachmentInfo(part, uri, size);
