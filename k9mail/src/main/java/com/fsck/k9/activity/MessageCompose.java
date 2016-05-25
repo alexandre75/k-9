@@ -771,6 +771,7 @@ public class MessageCompose extends K9Activity implements OnClickListener,
                 }
             };
             mCryptoSignatureCheckbox.setOnCheckedChangeListener(updateListener);
+            mCryptoSignatureCheckbox.setChecked(true);
             mCryptoSignatureUserId = (TextView)findViewById(R.id.userId);
             mCryptoSignatureUserIdRest = (TextView)findViewById(R.id.userIdRest);
             mEncryptCheckbox = (CheckBox)findViewById(R.id.cb_encrypt);
