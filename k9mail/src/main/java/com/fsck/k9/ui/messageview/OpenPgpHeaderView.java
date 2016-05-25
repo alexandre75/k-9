@@ -122,8 +122,9 @@ public class OpenPgpHeaderView extends LinearLayout {
     }
 
     private void displayNotEncrypted() {
-        setEncryptionImageAndTextColor(CryptoState.NOT_ENCRYPTED);
-        resultEncryptionText.setText(R.string.openpgp_result_not_encrypted);
+        dontDisplayEncryption();
+        //setEncryptionImageAndTextColor(CryptoState.NOT_ENCRYPTED);
+        //resultEncryptionText.setText(R.string.openpgp_result_not_encrypted);
     }
 
     private void displayInsecure() {
@@ -178,6 +179,11 @@ public class OpenPgpHeaderView extends LinearLayout {
         hideSignatureLayout();
         resultSignatureText.setVisibility(View.GONE);
         resultSignatureIcon.setVisibility(View.GONE);
+    }
+
+    private void dontDisplayEncryption(){
+        resultEncryptionText.setVisibility(View.GONE);
+        resultEncryptionIcon.setVisibility(View.GONE);
     }
 
     private void displayIncompleteSignedPart() {
@@ -264,9 +270,10 @@ public class OpenPgpHeaderView extends LinearLayout {
     }
 
     private void displayNotSigned() {
-        setSignatureImageAndTextColor(CryptoState.NOT_SIGNED);
-        resultSignatureText.setText(R.string.openpgp_result_no_signature);
-        hideSignatureLayout();
+        dontDisplayVerification();
+        //setSignatureImageAndTextColor(CryptoState.NOT_SIGNED);
+        //resultSignatureText.setText(R.string.openpgp_result_no_signature);
+        //hideSignatureLayout();
     }
 
     private void displaySignatureError() {
