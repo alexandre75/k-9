@@ -3747,7 +3747,7 @@ public class MessageCompose extends K9Activity implements OnClickListener,
     }
 
     private boolean shouldEncrypt() {
-        return isCryptoProviderEnabled() && mEncryptCheckbox.isChecked();
+        return isCryptoProviderEnabled() && mEncryptCheckbox != null && mEncryptCheckbox.isChecked();
     }
 
     private boolean shouldSign() {
