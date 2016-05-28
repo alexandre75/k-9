@@ -22,6 +22,7 @@ import com.fsck.k9.Account;
 import com.fsck.k9.K9;
 import com.fsck.k9.R;
 import com.fsck.k9.crypto.MessageDecryptVerifier;
+import com.fsck.k9.crypto.SaveSignedPartIS;
 import com.fsck.k9.mail.Body;
 import com.fsck.k9.mail.BodyPart;
 import com.fsck.k9.mail.MessagingException;
@@ -254,9 +255,13 @@ public class MessageCryptoHelper {
             public void run() {
                 try {
                     Multipart multipartSignedMultipart = (Multipart) currentCryptoPart.part.getBody();
-                    BodyPart signatureBodyPart = multipartSignedMultipart.getBodyPart(0);
-                    Log.d(K9.LOG_TAG, "signed data type: " + signatureBodyPart.getMimeType());
-                    signatureBodyPart.writeTo(out);
+                    if (saveSignedPart != null && saveSignedPart.isSaved(multipartSignedMultipart.getBoundary())){
+                        saveSignedPart.writeTo(multipartSignedMultipart.getBoundary(), out);
+                    } else {
+                        BodyPart signatureBodyPart = multipartSignedMultipart.getBodyPart(0);
+                        Log.d(K9.LOG_TAG, "signed data type: " + signatureBodyPart.getMimeType());
+                        signatureBodyPart.writeTo(out);
+                    }
                 } catch (Exception e) {
                     Log.e(K9.LOG_TAG, "Exception while writing message to crypto provider", e);
                 } finally {
@@ -308,15 +313,18 @@ public class MessageCryptoHelper {
         return pipedInputStream;
     }
 
+    private SaveSignedPartIS saveSignedPart;
+
     private PipedOutputStream getPipedOutputStreamForDecryptedData(final CountDownLatch latch) throws IOException {
         PipedOutputStream decryptedOutputStream = new PipedOutputStream();
-        final PipedInputStream decryptedInputStream = new PipedInputStream(decryptedOutputStream);
+        PipedInputStream decryptedInputStream = new PipedInputStream(decryptedOutputStream);
+        saveSignedPart = new SaveSignedPartIS(decryptedInputStream);
         new AsyncTask<Void, Void, MimeBodyPart>() {
             @Override
             protected MimeBodyPart doInBackground(Void... params) {
                 MimeBodyPart decryptedPart = null;
                 try {
-                    decryptedPart = DecryptStreamParser.parse(context, decryptedInputStream);
+                    decryptedPart = DecryptStreamParser.parse(context, saveSignedPart);
 
                     latch.await();
                 } catch (InterruptedException e) {
@@ -432,6 +440,10 @@ public class MessageCryptoHelper {
 
     private void addOpenPgpResultPartToMessage(OpenPgpResultAnnotation resultAnnotation) {
         Part part = currentCryptoPart.part;
+        if (resultAnnotation.getOutputData() != null) {
+            List<Part> signedParts = MessageDecryptVerifier.findSignedParts(resultAnnotation.getOutputData());
+            processFoundParts(signedParts, CryptoPartType.SIGNED, CryptoError.SIGNED_BUT_INCOMPLETE, NO_REPLACEMENT_PART);
+        }
         messageAnnotations.put(part, resultAnnotation);
     }
 

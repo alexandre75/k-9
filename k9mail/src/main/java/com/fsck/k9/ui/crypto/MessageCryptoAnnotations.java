@@ -15,6 +15,10 @@ public class MessageCryptoAnnotations {
     }
 
     void put(Part part, OpenPgpResultAnnotation annotation) {
+        if (annotations.size() > 0){
+            annotations.values().iterator().next().setSignatureResult(annotation.getSignatureResult());
+            return;
+        }
         annotations.put(part, annotation);
     }
 
