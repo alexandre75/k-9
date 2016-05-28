@@ -43,6 +43,8 @@ public class Attachment implements Parcelable {
      */
     public String name;
 
+    public String description;
+
     /**
      * The size of the attachment.
      *

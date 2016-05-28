@@ -5,6 +5,7 @@ import com.fsck.k9.mail.Body;
 import com.fsck.k9.mail.BodyPart;
 import com.fsck.k9.mail.CompositeBody;
 import com.fsck.k9.mail.MessagingException;
+import com.fsck.k9.mail.Multipart;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -31,19 +32,19 @@ public class MimeBodyPart extends BodyPart {
     }
 
     public MimeBodyPart(Body body, String mimeType) throws MessagingException {
-        this(body, mimeType, new MimeHeader());
-    }
-
-    MimeBodyPart(MimeHeader header, Body body)  throws MessagingException {
-        this(body, null, header);
-    }
-
-    private MimeBodyPart(Body body, String mimeType, MimeHeader header) throws MessagingException {
-        mHeader = header;
+        mHeader = new MimeHeader();
         if (mimeType != null) {
             addHeader(MimeHeader.HEADER_CONTENT_TYPE, mimeType);
         }
         MimeMessageHelper.setBody(this, body);
+    }
+
+    MimeBodyPart(MimeHeader header, Body body)  throws MessagingException {
+        mHeader = header;
+        setBody(body);
+        if (body instanceof Multipart){
+            ((Multipart) body).setParent(this);
+        }
     }
 
     private String getFirstHeader(String name) {

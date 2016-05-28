@@ -99,6 +99,7 @@ import com.fsck.k9.helper.SimpleTextWatcher;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.mail.Body;
+import com.fsck.k9.mail.EncryptionType;
 import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.Message.RecipientType;
@@ -1247,6 +1248,64 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             attachments.add(myPublicKey);
         }
         return attachments;
+    }
+
+    private void decryptMessage(Message msg, OutputStream os) throws IOException, OpenPgpApiException, MessagingException {
+        Message copy = msg.clone();
+        for (String header : copy.getHeaderNames()) {
+            if (header.toLowerCase().startsWith("content")) {
+                copy.removeHeader(header);
+            }
+        }
+        copy.writeHeaderTo(os);
+        Multipart body = (Multipart) mSourceMessage.getBody();
+        Body pgpEncrypted = body.getBodyPart(1).getBody();
+
+        OpenPgpApi api = new OpenPgpApi(this, mOpenPgpServiceConnection.getService());
+        Intent intent = new Intent(OpenPgpApi.ACTION_DECRYPT_VERIFY);
+        Intent res = api.executeApi(intent, pgpEncrypted.getInputStream(), os);
+        if (res.getIntExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR) != OpenPgpApi.RESULT_CODE_SUCCESS) {
+            throw new OpenPgpApiException("Couldn't decrypt message");
+        }
+    }
+
+    private Attachment attachForwardedMsg() {
+        try {
+            Attachment attachment = new Attachment();
+            attachment.contentType = "message/rfc822";
+            File keyTempFile = File.createTempFile("message", ".eml", getCacheDir());
+            keyTempFile.deleteOnExit();
+            try {
+                attachment.description = mSourceMessage.getHeader("From")[0] + ": " + mSourceMessage.getSubject();
+                attachment.name = "forwarded message";
+
+                BufferedOutputStream attachmentOutput = new BufferedOutputStream(new FileOutputStream(keyTempFile));
+                if (mSourceMessage.getEncryptionType() == EncryptionType.PGP_MIME) {
+                    try {
+                        decryptMessage(mSourceMessage, attachmentOutput);
+                    } catch (Exception e){
+                        Toast.makeText(this, R.string.forward_encrypted, Toast.LENGTH_SHORT).show();
+                        mSourceMessage.writeTo(attachmentOutput);
+                    }
+                } else {
+                    mSourceMessage.writeTo(attachmentOutput);
+                }
+
+                attachment.filename = keyTempFile.getAbsolutePath();
+                attachment.state = Attachment.LoadingState.COMPLETE;
+                return attachment;
+            } catch(MessagingException e) {
+                keyTempFile.delete();
+                Log.e(K9.LOG_TAG, "Can't attach message", e);
+                throw new RuntimeException("Can't attach message", e);
+            } catch(RuntimeException e){
+                keyTempFile.delete();
+                Log.e(K9.LOG_TAG, "Can't attach message", e);
+                throw e;
+            }
+        } catch(IOException e){
+            throw new RuntimeException(getString(R.string.error_cant_create_temporary_file), e);
+        }
     }
 
     private Attachment attachedPublicKey() throws OpenPgpApiException {
@@ -2572,7 +2631,9 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         }
 
         // Quote the message and setup the UI.
-        populateUIWithQuotedMessage(true);
+        //populateUIWithQuotedMessage(true);
+        /* rfc822 */
+        addAttachmentView(attachForwardedMsg());
 
         if (!mSourceMessageProcessed) {
             if (!loadAttachments(message, 0)) {
