@@ -1715,8 +1715,7 @@ public class Account implements BaseAccount, StoreConfig {
         mAlwaysShowCcBcc = show;
     }
     public boolean isRemoteSearchFullText() {
-        return false;   // Temporarily disabled
-        //return mRemoteSearchFullText;
+        return mRemoteSearchFullText;
     }
 
     public void setRemoteSearchFullText(boolean val) {

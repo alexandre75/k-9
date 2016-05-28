@@ -72,6 +72,9 @@ public class SqlQueryBuilder {
                     }
                     break;
                 }
+                case MESSAGE_CONTENTS:
+                    query.append("message_part_id in (select root from message_parts where data like '%"+condition.value+"%')");
+                    break;
                 default: {
                     appendCondition(condition, query, selectionArgs);
                 }

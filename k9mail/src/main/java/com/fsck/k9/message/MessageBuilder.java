@@ -262,10 +262,16 @@ public class MessageBuilder {
              *  title*2*=%2A%2A%2Afun%2A%2A%2A%20
              *  title*3="isn't it!"
              */
-            bp.addHeader(MimeHeader.HEADER_CONTENT_DISPOSITION, String.format(Locale.US,
-                    "attachment;\r\n filename=\"%s\";\r\n size=%d",
-                    attachment.name, attachment.size));
-
+            if (MimeUtil.isSameMimeType("message/rfc822", contentType)){
+                bp.addHeader(MimeHeader.HEADER_CONTENT_DISPOSITION, "inline; filename=\""+ attachment.name+ "\"");
+            } else {
+                bp.addHeader(MimeHeader.HEADER_CONTENT_DISPOSITION, String.format(Locale.US,
+                        "attachment;\r\n filename=\"%s\";\r\n size=%d",
+                        attachment.name, attachment.size));
+            }
+            if (attachment.description != null){
+                bp.addHeader("Content-Description", attachment.description);
+            }
             mp.addBodyPart(bp);
         }
     }
