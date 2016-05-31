@@ -81,7 +81,55 @@ public class SaveSignedPartIS extends FilterInputStream {
     }
 
     enum State {
-        LOOK_SIGNED_PART, LOOK_BOUNDARY, STORE_PART, CONTINUE_CONTENT_TYPE;
+        LOOK_SIGNED_PART {
+            public State next(byte[] byteLine, Map<String, byte[]> signedMap) throws UnsupportedEncodingException {
+                String line = new String(byteLine, "US-ASCII");
+                if (CONTENT_TYPE.matcher(line).lookingAt()){
+                    contentTypeBuffer = new StringBuilder(line);
+                    return CONTINUE_CONTENT_TYPE;
+                } else {
+                    return LOOK_SIGNED_PART;
+                }
+            }
+
+        },
+        LOOK_BOUNDARY {
+            public State next(byte[] byteLine, Map<String, byte[]> signedMap) throws UnsupportedEncodingException {
+                String line = new String(byteLine, "US-ASCII");
+                if (line.contains(signedBoundary)){
+                    signedPartBuffer = new ByteArrayOutputStream();
+                    signedPartStream = new EOLConvertingOutputStream(signedPartBuffer);
+                    return STORE_PART;
+                } else {
+                    return LOOK_BOUNDARY;
+                }
+            }
+        },
+        STORE_PART {
+            public State next(byte[] byteLine, Map<String, byte[]> signedMap) throws IOException {
+                String line = new String(byteLine, "US-ASCII");
+                if (line.contains(signedBoundary)) {
+                    signedMap.put(signedBoundary, signedPartBuffer.toByteArray());
+                    return LOOK_SIGNED_PART;
+                } else {
+                    signedPartStream.write(byteLine);
+                    return STORE_PART;
+                    // TODO look for nested signature
+                }
+            }
+        },
+        CONTINUE_CONTENT_TYPE {
+            public State next(byte[] byteLine, Map<String, byte[]> signedMap) throws UnsupportedEncodingException {
+                String line = new String(byteLine, "US-ASCII");
+                if (EMPTY_LINE.matcher(line).lookingAt()
+                        || NEW_HEADER.matcher(line).lookingAt()) {
+                    return parseContentTypeHeader(MimeUtil.unfold(contentTypeBuffer.toString()));
+                } else {
+                    contentTypeBuffer.append(line);
+                    return CONTINUE_CONTENT_TYPE;
+                }
+            }
+        };
 
         private final static Pattern CONTENT_TYPE = Pattern.compile("^Content-Type:", Pattern.CASE_INSENSITIVE);
         private final static Pattern EMPTY_LINE = Pattern.compile("^\r?\n");
@@ -92,42 +140,7 @@ public class SaveSignedPartIS extends FilterInputStream {
         private static ByteArrayOutputStream signedPartBuffer;
         private static OutputStream signedPartStream;
 
-        public State next(byte[] byteLine, Map<String, byte[]> signedMap) {
-            try {
-                String line = new String(byteLine, "US-ASCII");
-                switch (this) {
-                    case LOOK_SIGNED_PART:
-                        return lookSignedPart(line);
-                    case LOOK_BOUNDARY:
-                        // we should look for empty line first...?
-                        return lookBoundary(line);
-                    case STORE_PART:
-                        if (line.contains(signedBoundary)) {
-                            signedMap.put(signedBoundary, signedPartBuffer.toByteArray());
-                            return LOOK_SIGNED_PART;
-                        } else {
-                            signedPartStream.write(byteLine);
-                            return STORE_PART;
-                            // TODO look for nested signature
-                        }
-                    case CONTINUE_CONTENT_TYPE:
-                        if (EMPTY_LINE.matcher(line).lookingAt()
-                                || NEW_HEADER.matcher(line).lookingAt()) {
-                            return parseContentTypeHeader(MimeUtil.unfold(contentTypeBuffer.toString()));
-                        } else {
-                            contentTypeBuffer.append(line);
-                            return CONTINUE_CONTENT_TYPE;
-                        }
-                    default:
-                        throw new IllegalStateException();
-
-                }
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException("", e);
-            } catch (IOException e) {
-                throw new RuntimeException("", e);
-            }
-        }
+        abstract public State next(byte[] byteLine, Map<String, byte[]> signedMap) throws IOException;
 
         private static State parseContentTypeHeader(String line){
             boolean pgp = false;
@@ -156,26 +169,6 @@ public class SaveSignedPartIS extends FilterInputStream {
             }
         }
 
-        private State lookBoundary(String line){
-            if (line.contains(signedBoundary)){
-                signedPartBuffer = new ByteArrayOutputStream();
-                signedPartStream = new EOLConvertingOutputStream(signedPartBuffer);
-                return STORE_PART;
-            } else {
-                return LOOK_BOUNDARY;
-            }
-        }
-
         private static StringBuilder contentTypeBuffer;
-
-
-        private State lookSignedPart(String line){
-            if (CONTENT_TYPE.matcher(line).lookingAt()){
-                contentTypeBuffer = new StringBuilder(line);
-                return CONTINUE_CONTENT_TYPE;
-            } else {
-                return LOOK_SIGNED_PART;
-            }
-        }
     }
 }
